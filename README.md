@@ -2,72 +2,117 @@
 
 AI-powered QC tool for UAD 3.6 residential appraisal reports. Built for True Footage's internal review workflow.
 
+## Table of Contents
+
+- [What It Does](#what-it-does)
+- [Stack](#stack)
+- [Project Structure](#project-structure)
+- [Documentation](#documentation)
+- [Getting Started](#getting-started)
+- [Security Notes](#security-notes)
+
+---
+
 ## What It Does
 
 - Accepts UAD 3.6 appraisal reports in XML or PDF format
-- Runs automated hard compliance checks (UAD formatting, GSE overlays, USPAP)
-- Scores report quality (comparables, adjustments, market analysis, narrative, reconciliation)
-- Manages revision request workflow between appraisers and reviewers
-- Tracks appraiser performance over time for coaching and training
+- Runs automated compliance checks against Fannie Mae and Freddie Mac UAD Compliance APIs (709+ URAR rules)
+- Scores report quality across five dimensions: comparable selection, adjustments, market analysis, narrative, reconciliation
+- Generates structured revision requests from failed checks
+- Manages revision workflow between appraisers and QA reviewers
+- Tracks appraiser performance trends over time for coaching and training
+
+---
 
 ## Stack
 
-- **Backend:** Python / FastAPI
-- **Frontend:** React / TypeScript / Tailwind
-- **Database:** PostgreSQL (Railway managed)
-- **File Storage:** Cloudflare R2
-- **AI:** Anthropic Claude API
-- **Deployment:** Railway
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python / FastAPI |
+| Frontend | React / TypeScript / Tailwind CSS |
+| Database | PostgreSQL |
+| File Storage | Cloudflare R2 |
+| AI | Anthropic Claude API |
+| Deployment | Railway (pending IT/legal hosting decision) |
+
+---
 
 ## Project Structure
 
 ```
-TF AI-QC/
-├── backend/          # FastAPI backend
+TF-AI-QC/
+├── backend/                    # FastAPI backend
 │   ├── app/
-│   │   ├── api/      # Route handlers
-│   │   ├── core/     # Auth, config, dependencies
-│   │   ├── db/       # Migrations
-│   │   ├── models/   # SQLAlchemy ORM models
-│   │   └── services/ # Business logic (ingest, rules, workflow, coaching)
+│   │   ├── api/                # Route handlers
+│   │   ├── core/               # Auth, config, dependencies
+│   │   ├── db/                 # Migrations
+│   │   ├── models/             # SQLAlchemy ORM models
+│   │   └── services/           # Rules engine, scoring, workflow, coaching
 │   └── tests/
-├── frontend/         # React frontend
+├── frontend/                   # React frontend
 │   └── src/
-│       ├── components/  # appraiser/, reviewer/, admin/, shared/
+│       ├── components/         # appraiser/, reviewer/, admin/, shared/
 │       ├── pages/
 │       ├── hooks/
 │       └── types/
-├── context/          # Reference docs (UAD spec, GSE guidelines, sample reports)
-├── data-sources/     # External integration configs (Bubble OMS, MLS, etc.)
-├── docs/
-│   ├── superpowers/specs/  # Design specs
-│   ├── training/           # Coaching examples
-│   └── api/                # API documentation
-└── prompts/          # Cowork build playbook and session prompts
-    └── PLAYBOOK.md   # Start here
+├── context/                    # Reference docs (UAD spec, GSE guidelines)
+├── data-sources/               # External integration configs
+├── docs/                       # Project documentation
+│   ├── it-legal-brief.md       # Hosting decision brief for IT and legal
+│   ├── project-synopsis.md     # Project overview and business case
+│   ├── timeline-and-resources.md  # Build phases, timeline, cost estimates
+│   ├── dev-tools-and-stack.md  # Full technology and AI options reference
+│   ├── APP-STACK-AND-SECURITY.md  # Security architecture
+│   ├── SETUP-GUIDE.md          # Developer setup instructions
+│   └── superpowers/specs/      # Design specifications
+└── prompts/                    # Build playbook and session prompts
+    ├── PLAYBOOK.md             # Start here — ordered build sessions
+    └── sessions/               # Session-by-session prompts
 ```
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [IT/Legal Brief](docs/it-legal-brief.md) | Hosting options, data flow, compliance posture, approvals required |
+| [Project Synopsis](docs/project-synopsis.md) | Problem statement, features, business impact, success criteria |
+| [Timeline & Resources](docs/timeline-and-resources.md) | Build phases, calendar, people, infrastructure costs |
+| [Dev Tools & Stack](docs/dev-tools-and-stack.md) | Technology choices, AI options, rules engine, PII scrubbing |
+| [App Stack & Security](docs/APP-STACK-AND-SECURITY.md) | Security architecture and GLBA compliance approach |
+| [Setup Guide](docs/SETUP-GUIDE.md) | Developer environment setup |
+| [Build Playbook](prompts/PLAYBOOK.md) | Ordered session-by-session build instructions |
+
+---
 
 ## Getting Started
 
-See `prompts/PLAYBOOK.md` for the full build playbook with session-by-session prompts.
+See `prompts/PLAYBOOK.md` for the full build playbook.
 
-## Design Spec
+```powershell
+# Clone the repo
+git clone https://github.com/kzelenakas/TF-AI-QC.git
+cd TF-AI-QC
 
-`docs/superpowers/specs/2026-06-25-uad-qc-tool-design.md`
+# Backend
+pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env   # fill in credentials
 
-## Environment Variables
+# Frontend
+npm install --prefix frontend
 
-See `backend/.env.example` (created in Session 0).
+# Run locally
+docker compose up db                   # start database
+uvicorn app.main:app --reload          # start backend
+npm run dev --prefix frontend          # start frontend
+```
 
-Key variables:
-- `DATABASE_URL` — PostgreSQL connection string
-- `SECRET_KEY` — JWT signing key
-- `ANTHROPIC_API_KEY` — Claude API for quality scoring
-- `CLOUDFLARE_R2_*` — File storage credentials
-- `BUBBLE_API_TOKEN` — True Footage OMS integration (Phase 8)
+---
 
-## ⚠️ Security Notes
+## Security Notes
 
-- Never commit `.env` files — they are gitignored
-- Never add real appraisal reports to `context/sample-reports/` — use redacted/synthetic samples only
-- API keys go in environment variables only
+- **Never commit `.env` files** — gitignored by default
+- **Never add real appraisal reports** to `context/` — use redacted or synthetic samples only
+- **NPI handling** — all appraisal data must pass through the PII scrubber before reaching any AI service
+- **API keys** — environment variables only, never hardcoded
