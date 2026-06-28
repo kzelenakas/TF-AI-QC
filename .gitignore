@@ -72,3 +72,6 @@ tmp/
 htmlcov/
 test-results/
 playwright-report/
+
+# Graphify — generated knowledge graph output
+graphify-out/
