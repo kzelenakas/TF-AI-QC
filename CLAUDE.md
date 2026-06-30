@@ -2,114 +2,149 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project
+## Project Overview
 
-TF AI-QC — True Footage AI-Powered Appraisal Quality Control Platform.  
-Automates first-pass QA review of UAD 3.6 appraisal reports before submission to UCDP.  
-**Hard deadline: November 2, 2026** (UAD 3.6 mandatory for all GSE loans).
+TF AI-QC is an internal appraisal quality control tool for True Footage. Appraisers upload UAD 3.6 reports (XML or PDF); the system runs compliance checks, scores report quality, manages a revision workflow, and tracks appraiser performance over time.
 
-## Status
+The spec is the authoritative source: `docs/superpowers/specs/2026-06-25-uad-qc-tool-design.md`. Read it before implementing anything non-trivial.
 
-Pre-development. Awaiting IT/legal hosting decision before code starts. Two tracks:
+## Infrastructure
 
-| | Option A (preferred) | Option B |
-|---|---|---|
-| Hosting | Google Cloud Platform | Railway |
-| AI | Vertex AI (Gemini) | Anthropic Claude API |
-| Storage | Google Cloud Storage | Cloudflare R2 |
-| PII scrubbing | Google Cloud DLP | Microsoft Presidio |
-| Auth | Firebase / Google SSO | Auth0 or Clerk |
-| Compliance risk | Lower — data stays in GCP tenant | Higher — 3 vendor DPAs required |
+**Current target stack: Railway + Supabase + Bubble + Ollama.** GCP stack deprecated. See `docs/STACK-GUIDE.md` for full rationale.
 
-## NPI / GLBA Rule — Non-Negotiable
-
-Appraisal reports contain GLBA-protected NPI (borrower name, property address, loan data).
-
-- `reports.pii_scrubbed` must be `true` before any report data reaches an AI API
-- Never log or expose `report_data.raw_data` in error messages or external services
-- Warn before any workflow that could expose PII to an unvetted external endpoint
-- Test only with synthetic or fully redacted report data — never real borrower data
-
-## Stack
-
-Both hosting tracks share the same application stack:
-
-- **Backend:** Python / FastAPI
-- **ORM:** SQLAlchemy + Alembic (migrations)
-- **Frontend:** React / TypeScript / Tailwind CSS / shadcn/ui
-- **Database:** PostgreSQL 15+
-- **Background tasks:** Celery
-- **XML parsing:** lxml or xmltodict (UAD 3.6 XML)
-- **Rules engine:** Zen Engine (Layer 2/3 internal rules — decision table format)
-
-## Database Schema
-
-Initial migration: `db/migrations/001_initial.sql` (written, not yet applied).
-
-### Tables
-
-| Table | Purpose |
+| Component | Stack |
 |---|---|
-| `users` | Internal staff: reviewers, QDS, managers |
-| `appraisers` | External appraiser roster, keyed by license + state |
-| `reports` | One row per submitted report — status, file ref, PII scrub gate |
-| `report_data` | Parsed UAD 3.6 JSONB — **contains PII** |
-| `compliance_findings` | One row per rule per report, all 3 layers |
-| `quality_scores` | 5-dimension scores per report |
-| `revision_requests` | One per review cycle (report can have multiple rounds) |
-| `revision_items` | Individual line items within a revision request |
-| `appraiser_metrics` | Aggregated performance by period, updated async |
-| `audit_log` | Immutable event log — all state changes |
+| Backend hosting | Railway (FastAPI) |
+| AI model (local) | Ollama — `glm-4.7-flash` (Railway service) |
+| Database | Supabase (PostgreSQL 15) |
+| File storage | Cloudflare R2 |
+| Auth | Bubble native auth (passed as token to backend) |
+| Frontend | Bubble (no React — UI lives in True Footage Bubble app) |
+| Email | Resend |
+| Background jobs | Railway cron + background workers |
+| CI/CD | Railway auto-deploy from GitHub `main` |
+| Agent harness | Ruflo (`npx ruflo@latest init` already run) |
 
-### Key design decisions
+Bubble OMS integration is **Phase 1**, not Phase 3 — frontend lives in Bubble from day one.
 
-- `report_data.raw_data` is JSONB — UAD 3.6 XML structure is too complex for typed columns
-- `reports.pii_scrubbed` is the application-level gate before any AI call
-- No auth tables — handled by Firebase or Auth0/Clerk depending on hosting track
-- No rules tables — Layer 1 rules come from Fannie Mae API; Layer 2/3 live in Zen Engine JSON files in version control
-- Alembic manages migrations — never edit the schema directly
+## Commands
 
-## Rules Engine (3 Layers)
+Backend (once scaffold exists):
+```powershell
+# Run backend locally
+uvicorn app.main:app --reload
 
-**Layer 1 — Fannie Mae / Freddie Mac UAD Compliance API**
-- 709 URAR rules + 102 Restricted Report rules — use the API, do not rebuild
-- Free, requires registration: singlefamily.fanniemae.com
-- Updated automatically by Fannie Mae — register before development starts
+# Run migrations
+alembic upgrade head
 
-**Layer 2 — USPAP + TF Internal Rules (Zen Engine)**
-- Decision table format — rules authored as JSON/YAML, version-controlled
-- Kevin can add/modify rules without touching code
-- GitHub: github.com/gorules/zen
+# Seed rules table
+python -m app.db.seed_rules
 
-**Layer 3 — LLM Quality Scoring**
-- Subjective dimensions: comparable selection, adjustment support, market analysis, narrative quality, reconciliation
-- PII scrubber runs first — mandatory
-- Results stored in `compliance_findings` with `ai_generated = true`
+# Admin CLI (post-deploy)
+python -m app.cli create-admin
+python -m app.cli seed-rules
+python -m app.cli check-health
+```
 
-## Quality Scoring Dimensions
+Ollama (local dev):
+```powershell
+# Pull model
+ollama pull glm-4.7-flash
 
-Reports are scored 0–100 across 5 dimensions, stored in `quality_scores`:
+# Start Ollama server
+ollama serve
+```
 
-1. Comparable selection
-2. Adjustment support
-3. Market analysis
-4. Narrative quality
-5. Reconciliation
+Tests:
+```powershell
+# Run all backend tests
+pytest
 
-## Domain Rules for AI Assistance
+# Run a single test file
+pytest backend/tests/unit/test_auth.py -v
+```
 
-When writing code or reviewing findings for this project:
+## Architecture
 
-1. Lead with GLBA/NPI compliance — flag before tone or code quality
-2. Never invent USPAP, Fannie Mae, Freddie Mac, HUD, FHA, VA, or USDA citations
-3. Automated findings are tools supporting — not replacing — the licensed appraiser's judgment
-4. TF AI-QC does not produce value opinions and does not submit to UCDP
-5. Push back if a proposed approach would expose NPI to an unvetted service
+### Backend (`backend/app/`)
 
-## Key Docs (this folder)
+```
+core/        — config, supabase client, R2 client, auth dependencies (Bubble token verify)
+api/routes/  — auth, reports, revisions, rules, coaching, internal (cron jobs), integrations
+models/      — SQLAlchemy 2.x ORM: User, Report, QCResult, QCFlag, Revision, RevisionResponse, Rule
+services/
+  ingest/    — xml_parser.py, pdf_extractor.py, extractor_factory.py → all output ReportData
+  rules/     — engine.py (two-pass), base_rule.py, uad_format/, gse/, uspap/, quality_scorer.py
+  workflow/  — state_machine.py (report lifecycle transitions)
+  coaching/  — pattern_detector.py, report_generator.py, recommendations.py
+  storage.py — Cloudflare R2 wrapper (upload, signed URLs)
+  qc_service.py — orchestrates ingest → rule engine → DB save
+  notifications.py — Resend email (plain requests, no SDK)
+  privacy/pii_scrubber.py — strips PII before any text reaches Ollama
+  integrations/bubble_client.py — True Footage OMS sync (primary integration)
+  ai/ollama_client.py — Ollama API wrapper (glm-4.7-flash, fallback to Claude API if unreachable)
+db/          — Alembic migrations, seed_rules.py
+```
 
-- `docs/project-synopsis.md` — full problem statement and success criteria
-- `docs/it-legal-brief.md` — hosting decision brief for IT/legal approvers
-- `docs/timeline-and-resources.md` — critical path and deadlines
-- `docs/dev-tools-and-stack.md` — full stack reference with library choices
-- `db/migrations/001_initial.sql` — PostgreSQL initial migration
+### Frontend
+
+**No React.** Frontend is built in Bubble — pages live inside the True Footage Bubble app.
+Bubble calls the FastAPI backend via Bubble's API Connector plugin.
+Auth token from Bubble passed as `Authorization: Bearer` header on all API calls.
+
+### Rule Engine (two-pass)
+
+**Pass 1 — Hard Compliance:** UAD formatting rules, required field population, GSE overlays (Fannie Mae, Freddie Mac, FHA, VA), USPAP rules. Any failure blocks the report.
+
+**Pass 2 — Quality Scoring (0–100):** Five weighted sub-scorers: Comparables (30%), Adjustments (25%), Market Analysis (20%), Narrative (15%), Reconciliation (10%). Narrative scoring calls Ollama (`glm-4.7-flash`) with PII-scrubbed text. Falls back to Claude API if Ollama unreachable.
+
+Rules are stored in the `rules` DB table and cached in the engine. Admins can toggle rules on/off without a deploy.
+
+### Report Lifecycle
+
+```
+submitted → qc_running → qc_complete → approved
+                                     → revision_requested → resubmitted → qc_running (loop)
+```
+
+Transitions are role-enforced: only reviewers/admins can approve or request revision; only the original uploader can resubmit. Each transition is logged to Railway application logs (no PII in logs).
+
+## Data Model Notes
+
+- `reports.file_url` stores the R2 object key, not a signed URL. Generate 15-minute presigned URLs at request time.
+- `qc_results.raw_flags` is JSONB — full engine output, schema can evolve without migration.
+- `run_number` increments on each resubmission — full USPAP audit trail.
+- `rules.config` is JSONB — stores adjustable thresholds (e.g., net adjustment threshold) so rules are tunable without code changes.
+
+## Security Constraints
+
+These are not suggestions — appraisal reports contain GLBA-protected NPI.
+
+- **PII scrubber is mandatory** before any text reaches Ollama or any external AI API. `pii_scrubber.py` replaces names → `[PERSON]`, addresses → `[ADDRESS]`, SSNs/loan numbers → `[REDACTED]`, dollar amounts → `[VALUE]`.
+- **Signed URLs only.** Report files in Cloudflare R2 are never publicly accessible. Always return 15-minute presigned URLs, never permanent links. Log signed URL generation.
+- **No PII in logs.** Log only: `user_id`, `report_id`, `file_type`, `file_size`, `timestamp`, `action`, `result`. Never log file content, addresses, names, or financial figures.
+- **File validation is server-side.** Check magic bytes (not just filename/extension) to confirm XML or PDF. Reject everything else.
+- **CORS is restricted** to the True Footage Bubble domain — no wildcard `*` origins.
+- **All credentials** come from Railway environment variables in production. Local dev uses `.env.local` (gitignored).
+- **Audit logging** is required for every access to NPI data (upload, view, download, export, admin actions). Minimum 3-year retention.
+- **Bubble auth tokens** verified on every request — backend extracts `user_id` and `role` from token claims.
+
+## Context Files
+
+Place reference documents here before implementing rules — the engine reads them during build sessions:
+
+```
+context/guidelines/uspap/    — current USPAP edition
+context/guidelines/gse/      — Fannie Mae B4-1, Freddie Mac 5600, FHA 4000.1, VA Ch.11
+context/rule-references/uad-3.6/  — UAD Appendix D, MISMO XSD schema
+context/sample-reports/1004/ — redacted/synthetic URAR samples only (no real borrower data)
+data-sources/bubble-oms/     — Bubble API config (gitignored)
+```
+
+## Build Session Model
+
+Sessions are sequential — each builds on the last. Use `claude-opus-4-8` with Extended Thinking for implementation sessions.
+
+Reference: `docs/STACK-GUIDE.md` — authoritative stack decisions, rationale, cost estimates, and session build order.
+
+**Deprecated:** `docs/GOOGLE-CLOUD-GUIDE.md` (GCP stack — do not use). `prompts/PLAYBOOK.md` (Railway v1 — superseded).
