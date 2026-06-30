@@ -1,0 +1,11 @@
+[phases.setup]
+aptPkgs = ["libxml2-dev", "libxslt1-dev", "libpq-dev"]
+
+[phases.install]
+cmds = ["pip install -e ."]
+
+[phases.build]
+cmds = []
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
