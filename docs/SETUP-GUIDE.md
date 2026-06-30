@@ -227,35 +227,24 @@ Linear is better than a text file for tracking what's been built, what's broken,
 
 ---
 
-## STEP 14 — Add Context Documents to Project
+## STEP 14 — Context Documents (Done ✓)
 
-Before running Session 0, drop these reference docs into your project folder:
-
-**Where to get them:**
-
-| Document | Where to find it |
-|---|---|
-| USPAP current edition | appraisalfoundation.org → Publications → USPAP |
-| UAD Appendix D (field definitions) | fanniemae.com → search "UAD Appendix D" |
-| Fannie Mae Selling Guide B4-1 | selling-guide.fanniemae.com → B4-1 (Appraisals) |
-| FHA 4000.1 Handbook Ch. II.D | hud.gov → search "4000.1 handbook" → Chapter II.D |
-| VA Lender Handbook Ch. 11 | benefits.va.gov → search "VA Lender Handbook Chapter 11" |
-| New URAR sample (redacted) | Export from your appraisal software or ask a staff appraiser |
-
-**Where to put them:**
+Reference docs and compliance rule matrices are already in the repo:
 
 ```
 context/
 ├── guidelines/
-│   ├── uspap/         ← USPAP current edition PDF
-│   └── gse/           ← Fannie Mae B4-1, FHA 4000.1, VA Ch.11 PDFs
+│   ├── uspap/          2024 USPAP Standards 1-4
+│   └── gse/            Freddie Mac SG 5600-Property, UAD 3.6 Supplement,
+│                        Condition/Quality Rating Definitions, ANSI Z765 sq ft standard
 ├── rule-references/
-│   └── uad-3.6/       ← UAD Appendix D PDF
+│   ├── QC_rules/        Appendix H-1 + H-2 compliance rule matrices (primary rule source)
+│   └── uad-3.6/         blank UAD 3.6 form, Appendix A-1/C-1/E/F-1/G-1, MISMO XSD schema
 └── sample-reports/
-    └── 1004/          ← Redacted new URAR sample (PDF + XML if available)
+    └── 1004/            GSE Appendix D-1 sample scenarios (SF, Condo, Coop, MH, 2-4 unit)
 ```
 
-⚠️ Remove all borrower names, SSNs, and loan numbers from any sample reports before adding them.
+All current files are GSE-published — no borrower PII to worry about. If real client reports get added later, strip names/SSNs/loan numbers first.
 
 ---
 
@@ -273,7 +262,7 @@ Run this checklist before starting Session 0:
 - [ ] Anthropic API key saved
 - [ ] Resend API key saved
 - [ ] All credentials stored safely (not in project folder)
-- [ ] At least one reference doc in context/ folder
+- [x] Reference docs and compliance rule matrices in context/ folder
 - [ ] Project folder open in VS Code
 
 ---
