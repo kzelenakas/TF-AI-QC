@@ -2,7 +2,7 @@
 **Model:** claude-opus-4-8 (use for all implementation sessions)  
 **Project:** True Footage Appraisal QC Tool  
 **Spec:** `docs/superpowers/specs/2026-06-25-uad-qc-tool-design.md`  
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-06-30
 
 ---
 
@@ -201,7 +201,7 @@ ReportData must include these field groups:
 - certifications (list of certification statements, appraiser_license, supervisor_license)
 - raw_fields (dict of all field_name → value for any field not explicitly mapped)
 
-Place sample UAD XML in context/rule-references/uad-3.6/ for reference if available.
+Sample UAD XML, the blank UAD 3.6 form, and the GSE_UAD_3.6.0_v1.3 XSD schema are already in context/rule-references/uad-3.6/ (GSE_UAD_3.6.0_v1.3_schema/, Appendix G-1.xlsx, 36blank.pdf) — read them before writing the parser.
 
 Write unit tests with a minimal valid UAD XML fixture. Run tests and show output.
 ```
@@ -253,7 +253,7 @@ The ingest engine is complete. Build the rule engine framework and first rule se
 
 Architecture:
 - backend/app/services/rules/engine.py — RuleEngine class that:
-  - Loads active rules from the DB (or rule config files in context/rule-references/)
+  - Loads active rules from the DB (or rule config files in context/rule-references/ — see context/rule-references/QC_rules/ for the compliance rule matrix)
   - Runs Pass 1 (hard compliance) then Pass 2 (quality scoring)
   - Returns RuleEngineResult with: hard_pass (bool), quality_score (int 0-100), flags (list of QCFlag-ready dicts)
   - Each flag includes: rule_code, category, severity, field_name, message, gse_reference
@@ -284,7 +284,7 @@ You are helping me build TF AI-QC, a residential appraisal QC tool. Read the spe
 
 docs/superpowers/specs/2026-06-25-uad-qc-tool-design.md
 
-Check context/guidelines/gse/ for any reference documents. Check context/rule-references/gse-overlays/ for any GSE rule references. Read what's there before writing code.
+Read context/guidelines/gse/ (Freddie Mac SG 5600-Property guide, UAD 3.6 Supplement, Condition/Quality Rating Definitions, ANSI Z765 square footage standard) and context/rule-references/QC_rules/ (Appendix H-1 and H-2 compliance rule matrices — primary source for these rules) before writing code.
 
 The rule engine framework is in place. Add GSE-specific overlay rules.
 
@@ -830,37 +830,46 @@ This integration is optional at runtime — if BUBBLE_API_TOKEN is not set, skip
 | **GitHub MCP** | Not found in registry search. Install Claude's official GitHub MCP: `npx @anthropic/claude-github-mcp` or use the Cowork plugin install flow to find it. Essential for code management. |
 | **Railway MCP** | Railway doesn't have an MCP yet. Use Railway CLI in Bash tool, or monitor via Railway dashboard directly. |
 | **Bubble.io MCP** | Bubble doesn't have an MCP. We handle this with direct REST API calls in Phase 8. |
-| **Fannie Mae / GSE data feeds** | No MCP available. Download Selling Guide PDFs and place in `context/guidelines/gse/` for Claude to reference during rule writing. |
-| **UAD 3.6 XML Schema** | Place the official MISMO UAD schema XSD file in `context/rule-references/uad-3.6/` — Claude will use it when building the XML parser. |
+| **Fannie Mae / GSE data feeds** | No MCP available. Selling Guide / UAD reference docs already in `context/guidelines/gse/` and `context/rule-references/QC_rules/`. |
+| **UAD 3.6 XML Schema** | Already in `context/rule-references/uad-3.6/GSE_UAD_3.6.0_v1.3_schema/` — Claude will use it when building the XML parser. |
 
 ---
 
-## Context Files to Add Before Starting
+## Context Files — Current Inventory
 
-Drop these into the project before running sessions — Claude will read them when needed:
+All reference docs are GSE-published guides/samples, already in the repo:
 
 ```
 context/guidelines/uspap/
-  → Copy of current USPAP edition (PDF or text)
-  
+  → 2024 USPAP Standards 1-4
+
 context/guidelines/gse/
-  → Fannie Mae Selling Guide Chapter B4-1 (Appraisals) PDF
-  → Freddie Mac Seller/Servicer Guide Chapter 5600 PDF
-  → FHA 4000.1 Handbook Chapter II.D (Appraisals) PDF
-  → VA Lender Handbook Chapter 11 PDF
+  → Freddie Mac SG 5600-Property (10-20-2025)
+  → UAD 3.6 Supplement (updated 06-03-2026)
+  → UAD3.6 Condition and Quality Rating Definitions
+  → ANSI Z765-2021 Square Footage standard
+
+context/rule-references/QC_rules/
+  → Appendix H-1 Compliance Rules.xlsx
+  → Appendix H-2 UAD Compliance Rules Update Report.xlsx
+  → primary source for rule engine logic — read first when building Pass 1/Pass 2 rules
 
 context/rule-references/uad-3.6/
-  → UAD Appendix D (field definitions and valid values)
-  → MISMO UAD XML schema XSD file
+  → 36blank.pdf (blank UAD 3.6 form)
+  → Appendix A-1 URAR Delivery Specification.xlsx
+  → Appendix C-1 URAR Layout/, Appendix E Report Style Guide/, Appendix F-1 URAR Reference Guide/
+  → Appendix G-1.xlsx
+  → GSE_UAD_3.6.0_v1.3_schema/ (MISMO XSD)
 
 context/sample-reports/1004/
-  → 2-3 sample completed 1004 forms (PDF and XML if available)
-  → Remove any real borrower PII before adding
+  → GSE Appendix D-1 sample scenarios: SF1-5, SF5A, Condo1-2, Coop1, MH1, 2-4 unit (x2)
+  → Appendix D-1 URAR Sample Scenario Matrix v1.3.xlsx
+  → uad-sample-scenarios-combined.pdf (large combined file — extract once to text, don't re-feed raw to any AI step)
 ```
 
-**Privacy note:** Never add real appraisal reports with borrower names, SSNs, or property addresses to the context folder. Use redacted or synthetic samples only.
+**Privacy note:** All current files are GSE-published reference/sample materials, no real borrower data. Keep it that way — never add real appraisal reports with borrower names, SSNs, or unredacted addresses to the context folder.
 
 ---
 
-*Playbook version 1.0 — 2026-06-25*  
+*Playbook version 1.1 — 2026-06-30*  
 *Next step: Run `superpowers:writing-plans` to generate the Phase 0 implementation plan.*
