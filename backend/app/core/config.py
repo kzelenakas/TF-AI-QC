@@ -42,6 +42,7 @@ class Settings(BaseSettings):
 
     # Resend (email)
     resend_api_key: str = ""
+    reviewer_notify_email: str = ""  # comma-separated reviewer emails for QC complete notifications
 
     @property
     def cors_origins_list(self) -> list[str]:
