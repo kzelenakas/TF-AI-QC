@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     bubble_app_name: str = ""
     bubble_api_token: str = ""
     bubble_auth_secret: str = ""  # secret used to verify Bubble tokens
+    bubble_data_api_url: str = ""  # Bubble Data API base URL for OMS sync
+    bubble_data_api_key: str = ""  # Bubble Data API key
+
+    # Internal cron
+    internal_cron_secret: str = ""  # shared secret for Railway cron jobs
 
     # Resend (email)
     resend_api_key: str = ""
