@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routes import health
 from app.api.routes import reports
+from app.api.routes import revisions
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,9 +33,9 @@ app.add_middleware(
 # Routes
 app.include_router(health.router, tags=["health"])
 app.include_router(reports.router)
+app.include_router(revisions.router)
 
-# Session 3+ will register additional routers:
-# app.include_router(revisions.router)
+# Session 4+ will register additional routers:
 # app.include_router(rules.router)
 # app.include_router(coaching.router)
 # app.include_router(internal.router)
