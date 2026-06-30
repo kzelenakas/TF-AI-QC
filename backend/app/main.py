@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.routes import health
+from app.api.routes import reports
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,12 +17,10 @@ app = FastAPI(
     title="TF AI-QC",
     description="True Footage AI-Powered Appraisal QC Platform",
     version="0.1.0",
-    # Disable docs in production (NPI handling — limit exposure)
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
 )
 
-# CORS — restricted to Bubble domain in production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -32,13 +31,13 @@ app.add_middleware(
 
 # Routes
 app.include_router(health.router, tags=["health"])
+app.include_router(reports.router)
 
-# Sessions 1A+ will register additional routers here:
-# app.include_router(reports.router, prefix="/reports", tags=["reports"])
-# app.include_router(revisions.router, prefix="/revisions", tags=["revisions"])
-# app.include_router(rules.router, prefix="/rules", tags=["rules"])
-# app.include_router(coaching.router, prefix="/coaching", tags=["coaching"])
-# app.include_router(internal.router, prefix="/internal", tags=["internal"])
+# Session 3+ will register additional routers:
+# app.include_router(revisions.router)
+# app.include_router(rules.router)
+# app.include_router(coaching.router)
+# app.include_router(internal.router)
 
 
 @app.on_event("startup")
